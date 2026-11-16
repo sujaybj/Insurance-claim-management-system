@@ -117,3 +117,39 @@ class ClaimMessage(models.Model):
 
     class Meta:
         ordering = ["created_at"]
+
+
+class ExtractedClaim(models.Model):
+    """AI-extracted data for a claim, waiting for (or past) human review."""
+
+    class Status(models.TextChoices):
+        PROCESSING = "processing", "Processing"
+        NEEDS_REVIEW = "needs_review", "Needs review"
+        VERIFIED = "verified", "Verified"
+        FAILED = "failed", "Failed"
+
+    claim = models.OneToOneField(
+        Claim, on_delete=models.CASCADE, related_name="extraction"
+    )
+    data = models.JSONField(default=dict, blank=True)  # the validated JSON
+    status = models.CharField(
+        max_length=15, choices=Status.choices, default=Status.PROCESSING, db_index=True
+    )
+    review_reasons = models.JSONField(default=list, blank=True)  # why a human must look
+    error_message = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_extractions",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Extraction for {self.claim.claim_number} ({self.get_status_display()})"
