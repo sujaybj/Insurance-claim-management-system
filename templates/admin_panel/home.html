@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Admin panel</h1>
+<p><a class="btn secondary" href="{% url 'claims:panel_users' %}">Manage users</a>
+   <a class="btn secondary" href="{% url 'claims:dashboard' %}">All claims</a>
+   <a class="btn secondary" href="/django-admin/">Django admin</a></p>
+<div class="grid g4" style="margin:16px 0">
+  <div class="card stat"><b>{{ total_claims }}</b><span>Claims</span></div>
+  <div class="card stat"><b>{{ user_count }}</b><span>Users</span></div>
+  {% for k, n in claim_counts.items %}<div class="card stat"><b>{{ n }}</b><span>{{ k|cut:"_"|title }}</span></div>{% endfor %}
+</div>
+<div class="card">
+  <h2>Recent claims</h2>
+  <table>
+    {% for c in recent %}<tr><td><a href="{% url 'claims:detail' c.pk %}">{{ c.claim_number }}</a></td><td>{{ c.claimant.username }}</td>
+      <td><span class="badge s-{{ c.status }}">{{ c.get_status_display }}</span></td></tr>{% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Edit {{ target.username }}</h1>
+<div class="card" style="max-width:420px">
+  <form method="post">{% csrf_token %}{{ form.as_p }}
+    <button class="btn">Save</button> <a class="btn secondary" href="{% url 'claims:panel_users' %}">Cancel</a>
+  </form>
+</div>
+{% endblock %}

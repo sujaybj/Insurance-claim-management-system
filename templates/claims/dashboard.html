@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{% if user.is_claimant %}My claims{% else %}Claims queue{% endif %}</h1>
+
+<div class="grid g4" style="margin-bottom:20px">
+  <div class="card stat"><b>{{ total }}</b><span>Total</span></div>
+  {% for value, label in statuses %}
+  <div class="card stat"><b>{% for k, n in counts.items %}{% if k == value %}{{ n }}{% endif %}{% endfor %}{% if value not in counts %}0{% endif %}</b><span>{{ label }}</span></div>
+  {% endfor %}
+</div>
+
+<form class="card filters" method="get">
+  <div><label>Search</label><input name="q" value="{{ filters.q }}" placeholder="Claim or policy no."></div>
+  <div><label>Status</label>
+    <select name="status"><option value="">All</option>
+      {% for value, label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select></div>
+  <div><label>Incident from</label><input type="date" name="from" value="{{ filters.from }}"></div>
+  <div><label>Incident to</label><input type="date" name="to" value="{{ filters.to }}"></div>
+  <div><button class="btn" type="submit">Filter</button> <a class="btn secondary" href="{% url 'claims:dashboard' %}">Reset</a></div>
+</form>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Claim</th>{% if not user.is_claimant %}<th>Claimant</th>{% endif %}<th>Type</th><th>Incident</th><th>Amount</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for c in page %}
+      <tr>
+        <td><a href="{% url 'claims:detail' c.pk %}">{{ c.claim_number }}</a></td>
+        {% if not user.is_claimant %}<td>{{ c.claimant.username }}</td>{% endif %}
+        <td>{{ c.get_claim_type_display }}</td>
+        <td>{{ c.incident_date|date:"d M Y" }}</td>
+        <td>₹{{ c.amount_claimed|floatformat:2 }}</td>
+        <td><span class="badge s-{{ c.status }}">{{ c.get_status_display }}</span></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="help">No claims found.{% if user.is_claimant %} <a href="{% url 'claims:create' %}">Submit one</a>.{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if page.paginator.num_pages > 1 %}
+  <div class="pager">
+    {% if page.has_previous %}<a href="?{{ query_string }}&page={{ page.previous_page_number }}">← Prev</a>{% endif %}
+    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?{{ query_string }}&page={{ page.next_page_number }}">Next →</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

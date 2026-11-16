@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ claim.claim_number }} · ClaimDesk{% endblock %}
+{% block content %}
+<h1>{{ claim.claim_number }}
+  <span id="status-badge" class="badge s-{{ claim.status }}">{{ claim.get_status_display }}</span></h1>
+
+<div class="grid g2">
+  <div class="card">
+    <h2>Details</h2>
+    <dl class="meta">
+      <dt>Claimant</dt><dd>{{ claim.claimant.get_full_name|default:claim.claimant.username }}</dd>
+      <dt>Policy no.</dt><dd>{{ claim.policy_number }}</dd>
+      <dt>Type</dt><dd>{{ claim.get_claim_type_display }}</dd>
+      <dt>Incident date</dt><dd>{{ claim.incident_date|date:"d M Y" }}</dd>
+      <dt>Amount</dt><dd>₹{{ claim.amount_claimed|floatformat:2 }}</dd>
+      <dt>Agent</dt><dd>{{ claim.assigned_agent|default:"Not yet assigned" }}</dd>
+      <dt>Submitted</dt><dd>{{ claim.created_at|date:"d M Y, H:i" }}</dd>
+    </dl>
+    <p>{{ claim.description|linebreaksbr }}</p>
+  </div>
+
+  <div class="card">
+    <h2>Status timeline <small class="help" id="live-hint">(live)</small></h2>
+    <ul class="timeline" id="timeline">
+      <li>Received — {{ claim.created_at|date:"d M, H:i" }}</li>
+      {% for h in history %}
+      <li>{{ h.get_new_status_display }} — {{ h.created_at|date:"d M, H:i" }}{% if h.note %}<br><span class="help">{{ h.note }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Documents</h2>
+  <ul>
+    {% for d in documents %}<li><a href="{% url 'claims:document' d.pk %}" target="_blank">{{ d.original_name }}</a> <span class="help">{{ d.uploaded_at|date:"d M Y" }}</span></li>
+    {% empty %}<li class="help">No documents uploaded.</li>{% endfor %}
+  </ul>
+  <form method="post" action="{% url 'claims:add_documents' claim.pk %}" enctype="multipart/form-data">{% csrf_token %}
+    {{ upload_form.documents }}<br><br><button class="btn secondary">Upload more</button>
+  </form>
+</div>
+
+{% if status_form %}
+<div class="card">
+  <h2>Update claim (staff)</h2>
+  <form method="post" action="{% url 'claims:update_status' claim.pk %}">{% csrf_token %}
+    <div class="grid g2">
+      <div><label>Status</label>{{ status_form.status }}</div>
+      {% if user.is_admin_role %}<div><label>Assigned agent</label>{{ status_form.assigned_agent }}</div>{% endif %}
+    </div>
+    <label>Note to claimant</label>{{ status_form.note }}<br><br>
+    <button class="btn">Save &amp; notify claimant</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card thread">
+  <h2>Messages</h2>
+  {% for m in thread %}
+    <div class="m"><b>{{ m.author.username }}</b> <small>{{ m.created_at|date:"d M, H:i" }}</small><br>{{ m.body|linebreaksbr }}</div>
+  {% empty %}<p class="help">No messages yet.</p>{% endfor %}
+  <form method="post" action="{% url 'claims:message' claim.pk %}">{% csrf_token %}
+    {{ msg_form.body }}<br><button class="btn">Send</button>
+  </form>
+</div>
+
+<script>
+// Real-time tracking: poll the status API every 10s and reload when it changes.
+(function () {
+  let current = "{{ claim.status }}";
+  setInterval(async () => {
+    try {
+      const r = await fetch("/api/claims/{{ claim.pk }}/status/", {credentials: "same-origin"});
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.status !== current) { current = d.status; location.reload(); }
+    } catch (e) { /* offline: try again next tick */ }
+  }, 10000);
+})();
+</script>
+{% endblock %}

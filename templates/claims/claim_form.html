@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}New claim · ClaimDesk{% endblock %}
+{% block content %}
+<h1>Submit a claim</h1>
+<div class="card">
+  <form method="post" enctype="multipart/form-data" novalidate>{% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn" type="submit">Submit claim</button>
+    <a class="btn secondary" href="{% url 'claims:dashboard' %}">Cancel</a>
+  </form>
+</div>
+<script>
+// Client-side convenience check; the server enforces the same limits.
+document.querySelector('input[type=file]').addEventListener('change', e => {
+  for (const f of e.target.files) {
+    if (f.size > 5 * 1024 * 1024) { alert(f.name + ' is larger than 5 MB'); e.target.value = ''; break; }
+  }
+});
+</script>
+{% endblock %}

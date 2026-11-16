@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Register · ClaimDesk{% endblock %}
+{% block content %}
+<div class="card auth">
+  <h1>Create your account</h1>
+  <form method="post">{% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn" type="submit">Register</button>
+  </form>
+  <p class="help">Already registered? <a href="{% url 'accounts:login' %}">Log in</a></p>
+</div>
+{% endblock %}
