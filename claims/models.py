@@ -87,6 +87,12 @@ class ClaimDocument(models.Model):
     file = models.FileField(upload_to=document_upload_path)
     original_name = models.CharField(max_length=255)
     uploaded_at = models.DateTimeField(default=timezone.now)
+    # Filled in by the AI pipeline (claims/ai/ingestion.py)
+    ocr_text = models.TextField(blank=True)
+    ocr_confidence = models.FloatField(null=True, blank=True)  # 0-1; null = text read directly
+    ocr_method = models.CharField(max_length=20, blank=True)
+    ocr_done = models.BooleanField(default=False)
+    ocr_error = models.TextField(blank=True)
 
     def __str__(self):
         return self.original_name

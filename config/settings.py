@@ -125,3 +125,10 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# --- AI claim processing (free tools now; paid API upgrades are listed in docs/UPGRADES.md) ---
+OCR_BACKEND = os.environ.get("OCR_BACKEND", "tesseract")
+OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng")  # e.g. "eng+hin" if the Hindi pack is installed
+TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")  # full path on Windows if not on PATH
+POPPLER_PATH = os.environ.get("POPPLER_PATH", "") or None  # Windows: folder containing pdftoppm.exe
+OCR_MAX_PDF_PAGES = 10
