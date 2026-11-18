@@ -14,5 +14,6 @@ The AI feature is built with **free tools first**. Each row says what to swap an
 | 8 | Live tracking | Polling every 10 s | WebSockets (Django Channels) | `claims/api.py` |
 | 9 | Password reset | Missing | Django's built-in reset views + email | `accounts/` |
 | 10 | Malware scan on uploads | None | ClamAV or a scanning API | `claims/forms.py` |
+| 11 | Name/policy/vehicle reading | Label rules + a built-in list of ~35 vehicle makes | LLM extraction reads any form layout, including unlabelled and handwritten ones | `claims/ai/extractor.py` (`extract_fields`) |
 
 Keep this file updated: add a row whenever a step is built with a shortcut.
