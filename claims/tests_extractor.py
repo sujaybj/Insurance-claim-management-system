@@ -133,7 +133,7 @@ class PipelineTests(TestCase):
         self.assertEqual(extraction.data["policy_number"], "POL-123456")
         self.assertEqual(extraction.data["vehicle_details"]["year"], 2019)
         self.assertEqual(extraction.data["images"], [reverse("claims:document", args=[doc.pk])])
-        self.assertEqual(extraction.status, ExtractedClaim.Status.PROCESSING)
+        self.assertEqual(extraction.status, ExtractedClaim.Status.NEEDS_REVIEW)  # a car claim with no vehicle photo
 
     def test_missing_essentials_go_to_review(self):
         extraction = process_claim(self.claim)  # no documents, no names in the description

@@ -136,3 +136,7 @@ OCR_MAX_PDF_PAGES = 10
 # --- Damage severity guesses from the claimed amount (in rupees); tune these with real claims ---
 DAMAGE_AMOUNT_MODERATE = 50_000
 DAMAGE_AMOUNT_SEVERE = 300_000
+
+# --- Human review (step 6) ---
+REVIEW_MIN_CONFIDENCE = 0.60  # below this the extraction goes to a person
+AI_AUTO_PROCESS = os.environ.get("AI_AUTO_PROCESS", "0") == "1"  # run the AI check when a claim/documents are submitted

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}AI review {{ claim.claim_number }} · ClaimDesk{% endblock %}
+{% block content %}
+<h1>AI review &middot; <a href="{% url 'claims:detail' claim.pk %}">{{ claim.claim_number }}</a>
+  {% if extraction %}<span class="badge s-{{ extraction.status }}">{{ extraction.get_status_display }}</span>
+  <span class="badge p-{{ extraction.priority }}">{{ extraction.get_priority_display }} priority</span>{% endif %}</h1>
+<p><a href="{% url 'claims:review_queue' %}">&larr; Back to the queue</a></p>
+
+{% if not extraction %}
+<div class="card">
+  <p>The AI check has not been run for this claim yet.</p>
+  <form method="post" action="{% url 'claims:review_run' claim.pk %}">{% csrf_token %}<button class="btn">Run the AI check</button></form>
+</div>
+{% else %}
+{% if extraction.error_message %}<div class="msg error">{{ extraction.error_message|linebreaksbr }}</div>{% endif %}
+<div class="grid g2">
+  <div>
+    <div class="card">
+      <h2>Extracted data</h2>
+      {% if decided %}
+        <dl class="meta">
+          <dt>Customer</dt><dd>{{ extraction.data.customer_name|default:"—" }}</dd>
+          <dt>Policy no.</dt><dd>{{ extraction.data.policy_number|default:"—" }}</dd>
+          <dt>Accident</dt><dd>{{ extraction.data.accident_description|default:"—" }}</dd>
+          <dt>Vehicle</dt><dd>{{ extraction.data.vehicle_details.make|default:"—" }} {{ extraction.data.vehicle_details.model|default:"" }} {{ extraction.data.vehicle_details.year|default:"" }}</dd>
+          <dt>Damage</dt><dd>{{ extraction.data.damage_description|default:"—" }}</dd>
+          <dt>Severity</dt><dd>{{ extraction.data.damage_severity|default:"—"|capfirst }}</dd>
+        </dl>
+        <p class="help">Decision by <b>{{ extraction.reviewed_by.username|default:"—" }}</b>{% if extraction.reviewed_at %} on {{ extraction.reviewed_at|date:"d M Y, H:i" }}{% endif %}{% if extraction.review_note %}: &ldquo;{{ extraction.review_note }}&rdquo;{% endif %}</p>
+        <form method="post">{% csrf_token %}<button class="btn secondary" name="action" value="reopen">Re-open for review</button></form>
+      {% else %}
+        <form method="post">{% csrf_token %}
+          {% for f in form %}
+            <label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}
+            {{ f.errors }}{% if f.help_text %}<span class="help">{{ f.help_text }}</span>{% endif %}
+          {% endfor %}
+          <div class="actions">
+            <button class="btn" name="action" value="approve">Approve (with any corrections)</button>
+            <button class="btn secondary" name="action" value="reject">Reject</button>
+          </div>
+        </form>
+      {% endif %}
+      {% if changes %}
+        <h2 style="margin-top:20px">Corrected by the reviewer</h2>
+        <table>{% for label, old, new in changes %}<tr class="changed"><td>{{ label }}</td><td class="help">AI: {{ old|default:"(empty)" }}</td><td>Now: {{ new|default:"(empty)" }}</td></tr>{% endfor %}</table>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Why it was flagged</h2>
+      <ul class="flags">
+        {% for f in flags %}<li><span class="badge p-{{ f.priority }}">{{ f.priority }}</span> {{ f.message }}</li>
+        {% empty %}<li class="help">No flags: the extraction passed every automatic check.</li>{% endfor %}
+      </ul>
+      <form method="post" action="{% url 'claims:review_run' claim.pk %}" style="margin-top:12px">{% csrf_token %}
+        <button class="btn secondary">Re-run the AI check</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>What the claimant entered</h2>
+      <dl class="meta">
+        <dt>Claimant</dt><dd>{{ claim.claimant.get_full_name|default:claim.claimant.username }}</dd>
+        <dt>Policy no.</dt><dd>{{ claim.policy_number }}</dd>
+        <dt>Incident date</dt><dd>{{ claim.incident_date|date:"d M Y" }}</dd>
+        <dt>Amount</dt><dd>&#8377;{{ claim.amount_claimed }}</dd>
+        <dt>Description</dt><dd>{{ claim.description }}</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2>Documents and checks</h2>
+      <ul>{% for d in documents %}<li><a href="{% url 'claims:document' d.pk %}" target="_blank">{{ d.original_name }}</a>
+        {% if d.ocr_confidence != None and d.ocr_text %}<span class="help">text read at {% widthratio d.ocr_confidence 1 100 %}%</span>{% endif %}</li>
+        {% empty %}<li class="help">No documents.</li>{% endfor %}</ul>
+      {% if photos %}
+      <table><thead><tr><th>Photo</th><th>Sharpness</th><th>Light</th><th></th></tr></thead>
+        {% for p in photos %}<tr><td>{{ p.name }}</td><td>{{ p.blur_score }}</td><td>{{ p.brightness }}</td><td>{% if p.usable %}OK{% else %}{{ p.issues|join:", " }}{% endif %}</td></tr>{% endfor %}
+      </table>{% endif %}
+      <p class="help">Severity is guessed from: {{ severity_reasons|join:"; " }}. Confidence parts: completeness {{ confidence_parts.completeness }}, text reading {{ confidence_parts.ocr }}, photos {{ confidence_parts.photos }}.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

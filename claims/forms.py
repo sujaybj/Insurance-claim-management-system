@@ -119,3 +119,40 @@ class DocumentUploadForm(forms.Form):
         for f in files:
             validate_upload(f)
         return files
+
+
+class ReviewForm(forms.Form):
+    """What a reviewer sees and can correct on the AI review page."""
+
+    SEVERITIES = [("", "— not set —"), ("minor", "Minor"), ("moderate", "Moderate"), ("severe", "Severe")]
+
+    customer_name = forms.CharField(required=False, max_length=120)
+    policy_number = forms.CharField(required=False, max_length=40)
+    accident_description = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    vehicle_make = forms.CharField(required=False, max_length=60)
+    vehicle_model = forms.CharField(required=False, max_length=60)
+    vehicle_year = forms.CharField(required=False, max_length=4)  # text, so a typo gives a clear message
+    damage_description = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    damage_severity = forms.ChoiceField(required=False, choices=SEVERITIES)
+    note = forms.CharField(
+        required=False, label="Reviewer note", widget=forms.Textarea(attrs={"rows": 2}),
+        help_text="Required when rejecting.",
+    )
+
+    @classmethod
+    def initial_from(cls, data):
+        data = data or {}
+        vehicle = data.get("vehicle_details") or {}
+        return {
+            "customer_name": data.get("customer_name"), "policy_number": data.get("policy_number"),
+            "accident_description": data.get("accident_description"),
+            "damage_description": data.get("damage_description"), "damage_severity": data.get("damage_severity") or "",
+            "vehicle_make": vehicle.get("make"), "vehicle_model": vehicle.get("model"),
+            "vehicle_year": vehicle.get("year"),
+        }
+
+    def edits(self):
+        """The corrected fields, blank -> None, ready for apply_review."""
+        names = ("customer_name", "policy_number", "accident_description", "damage_description",
+                 "damage_severity", "vehicle_make", "vehicle_model", "vehicle_year")
+        return {n: (self.cleaned_data.get(n) or "").strip() or None for n in names}

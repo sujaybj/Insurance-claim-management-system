@@ -22,7 +22,7 @@ admin.site.register(ClaimMessage)
 
 @admin.register(ExtractedClaim)
 class ExtractedClaimAdmin(admin.ModelAdmin):
-    list_display = ("claim", "status", "reviewed_by", "created_at")
-    list_filter = ("status",)
+    list_display = ("claim", "status", "priority", "reviewed_by", "created_at")
+    list_filter = ("status", "priority")
     search_fields = ("claim__claim_number", "claim__policy_number")
     readonly_fields = ("created_at", "updated_at")

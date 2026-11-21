@@ -131,8 +131,14 @@ class ExtractedClaim(models.Model):
     class Status(models.TextChoices):
         PROCESSING = "processing", "Processing"
         NEEDS_REVIEW = "needs_review", "Needs review"
-        VERIFIED = "verified", "Verified"
+        AUTO_VERIFIED = "auto_verified", "Passed automatic checks"  # no flags; no person looked at it
+        VERIFIED = "verified", "Approved by reviewer"
+        REJECTED = "rejected", "Rejected by reviewer"
         FAILED = "failed", "Failed"
+
+    class Priority(models.TextChoices):
+        HIGH = "high", "High"
+        NORMAL = "normal", "Normal"
 
     claim = models.OneToOneField(
         Claim, on_delete=models.CASCADE, related_name="extraction"
@@ -141,7 +147,10 @@ class ExtractedClaim(models.Model):
     status = models.CharField(
         max_length=15, choices=Status.choices, default=Status.PROCESSING, db_index=True
     )
+    priority = models.CharField(max_length=6, choices=Priority.choices, default=Priority.NORMAL, db_index=True)
     review_reasons = models.JSONField(default=list, blank=True)  # why a human must look
+    original_data = models.JSONField(default=dict, blank=True)  # the AI's version, kept when a reviewer edits
+    review_note = models.TextField(blank=True)
     analysis = models.JSONField(default=dict, blank=True)  # photo checks, severity reasons, confidence parts
     error_message = models.TextField(blank=True)
     reviewed_by = models.ForeignKey(

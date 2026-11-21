@@ -32,3 +32,13 @@ input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);b
 .meta{display:grid;grid-template-columns:140px 1fr;gap:6px 12px}.meta dt{color:var(--muted)}.meta dd{margin:0}
 .pager{display:flex;gap:12px;justify-content:center;margin-top:12px}
 .auth{max-width:420px;margin:48px auto}
+
+/* AI review (step 6) */
+.p-high{background:#fee2e2;color:var(--bad)}.p-normal{background:#e5e7eb;color:#374151}
+.s-needs_review{background:#fef3c7;color:var(--warn)}.s-auto_verified{background:#e0f2fe;color:#075985}
+.s-verified{background:#dcfce7;color:var(--ok)}.s-rejected,.s-failed{background:#fee2e2;color:var(--bad)}.s-processing{background:#e5e7eb;color:#374151}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;padding:12px}.tabs a{padding:6px 12px;border-radius:99px;border:1px solid var(--line);color:var(--text)}
+.tabs a.on{background:var(--brand);color:#fff;border-color:var(--brand)}.tabs a small{opacity:.8}
+.flags{list-style:none;padding:0;margin:0}.flags li{padding:6px 0;border-bottom:1px solid var(--line)}.flags li:last-child{border:0}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.changed{background:#fffbeb}

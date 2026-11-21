@@ -5,17 +5,21 @@ from django.db import transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from accounts.forms import UserRoleForm
 from accounts.models import User
 
+from .ai.pipeline import maybe_auto_process, process_claim
+from .ai.review import HUMAN_DECIDED, ReviewError, apply_review, changed_fields
 from .forms import (
     ClaimForm,
     DocumentUploadForm,
     MessageForm,
+    ReviewForm,
     StatusUpdateForm,
 )
-from .models import Claim, ClaimDocument
+from .models import Claim, ClaimDocument, ExtractedClaim
 from .notifications import notify_new_message, notify_status_change
 from .permissions import (
     admin_required,
@@ -84,6 +88,7 @@ def claim_create(request):
             claim.save()
             _save_documents(claim, form.cleaned_data["documents"])
         notify_status_change(claim)
+        maybe_auto_process(claim)
         messages.success(request, f"Claim {claim.claim_number} submitted.")
         return redirect("claims:detail", pk=claim.pk)
     return render(request, "claims/claim_form.html", {"form": form})
@@ -134,6 +139,7 @@ def claim_add_documents(request, pk):
         form = DocumentUploadForm(request.POST, request.FILES)
         if form.is_valid():
             _save_documents(claim, form.cleaned_data["documents"])
+            maybe_auto_process(claim)
             messages.success(request, "Documents uploaded.")
         else:
             for err in form.errors.get("documents", []):
@@ -224,3 +230,122 @@ def panel_user_edit(request, pk):
             messages.success(request, f"Updated {target.username}.")
             return redirect("claims:panel_users")
     return render(request, "admin_panel/user_edit.html", {"form": form, "target": target})
+
+
+# ---------- AI extraction review (staff) ----------
+
+REVIEW_TABS = [
+    (ExtractedClaim.Status.NEEDS_REVIEW, "Needs review"),
+    (ExtractedClaim.Status.AUTO_VERIFIED, "Passed automatic checks"),
+    (ExtractedClaim.Status.VERIFIED, "Approved"),
+    (ExtractedClaim.Status.REJECTED, "Rejected"),
+    (ExtractedClaim.Status.FAILED, "Failed"),
+]
+
+
+@staff_required
+def review_queue(request):
+    visible = claims_visible_to(request.user)
+    base = ExtractedClaim.objects.filter(claim__in=visible)
+    counts = dict(base.order_by().values_list("status").annotate(n=Count("id")))
+    status = request.GET.get("status", ExtractedClaim.Status.NEEDS_REVIEW)
+    if status not in dict(REVIEW_TABS):
+        status = ExtractedClaim.Status.NEEDS_REVIEW
+    # "high" sorts before "normal", so ascending priority puts the urgent ones first.
+    items = (
+        base.filter(status=status).select_related("claim", "claim__claimant").order_by("priority", "created_at")
+    )
+    tabs = [(value, label, counts.get(value, 0), value == status) for value, label in REVIEW_TABS]
+    return render(
+        request,
+        "claims/review_queue.html",
+        {"items": items, "tabs": tabs, "status": status, "unanalysed": visible.filter(extraction__isnull=True).count()},
+    )
+
+
+@staff_required
+def review_detail(request, pk):
+    claim = get_claim_for_user(request.user, pk)
+    extraction = ExtractedClaim.objects.filter(claim=claim).select_related("reviewed_by").first()
+    form = None
+    if request.method == "POST":
+        if extraction is None:
+            raise Http404
+        action = request.POST.get("action", "")
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            try:
+                apply_review(
+                    extraction, request.user, action,
+                    edits=form.edits() if action == "approve" else None,
+                    note=form.cleaned_data["note"],
+                )
+            except ReviewError as exc:
+                messages.error(request, str(exc))
+            else:
+                done = {"approve": "Extraction approved.", "reject": "Extraction rejected.", "reopen": "Re-opened for review."}
+                messages.success(request, done[action])
+                return redirect("claims:review_detail" if action == "reopen" else "claims:review_queue",
+                                *([claim.pk] if action == "reopen" else []))
+    elif extraction and extraction.status not in HUMAN_DECIDED:
+        form = ReviewForm(initial=ReviewForm.initial_from(extraction.data))
+    analysis = (extraction.analysis if extraction else None) or {}
+    return render(
+        request,
+        "claims/review_detail.html",
+        {
+            "claim": claim,
+            "extraction": extraction,
+            "form": form,
+            "decided": bool(extraction and extraction.status in HUMAN_DECIDED),
+            "flags": (analysis.get("review") or {}).get("flags", []),
+            "photos": analysis.get("photos", []),
+            "confidence_parts": analysis.get("confidence_parts") or {},
+            "severity_reasons": analysis.get("severity_reasons", []),
+            "changes": changed_fields(extraction.original_data, extraction.data) if extraction and extraction.original_data else [],
+            "documents": claim.documents.all(),
+        },
+    )
+
+
+@staff_required
+@require_POST
+def review_run(request, pk):
+    claim = get_claim_for_user(request.user, pk)
+    existing = ExtractedClaim.objects.filter(claim=claim).first()
+    if existing and existing.status in HUMAN_DECIDED:
+        messages.info(request, "A reviewer already decided on this. Re-open it first to run the AI check again.")
+    else:
+        try:
+            process_claim(claim)
+            messages.success(request, "AI check finished.")
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("AI check failed for claim %s", claim.claim_number)
+            messages.error(request, "The AI check could not run. Details are in the server log.")
+    return redirect("claims:review_detail", pk=claim.pk)
+
+
+@staff_required
+@require_POST
+def review_run_pending(request):
+    todo = list(claims_visible_to(request.user).filter(extraction__isnull=True)[:10])
+    done = 0
+    for claim in todo:
+        if maybe_run(claim):
+            done += 1
+    messages.success(request, f"AI check finished for {done} claim(s).")
+    return redirect("claims:review_queue")
+
+
+def maybe_run(claim):
+    """Run the AI check regardless of AI_AUTO_PROCESS; log and skip on failure."""
+    import logging
+
+    try:
+        process_claim(claim)
+        return True
+    except Exception:
+        logging.getLogger(__name__).exception("AI check failed for claim %s", claim.claim_number)
+        return False

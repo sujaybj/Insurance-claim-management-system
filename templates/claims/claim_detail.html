@@ -68,6 +68,7 @@
 {% if status_form %}
 <div class="card">
   <h2>Update claim (staff)</h2>
+  <p><a href="{% url 'claims:review_detail' claim.pk %}">Open the AI extraction review for this claim &rarr;</a></p>
   <form method="post" action="{% url 'claims:update_status' claim.pk %}">{% csrf_token %}
     <div class="grid g2">
       <div><label>Status</label>{{ status_form.status }}</div>

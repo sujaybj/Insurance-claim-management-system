@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}AI review · ClaimDesk{% endblock %}
+{% block content %}
+<h1>AI extraction review</h1>
+<div class="card tabs">
+  {% for value, label, n, on in tabs %}<a href="?status={{ value }}" class="{% if on %}on{% endif %}">{{ label }} <small>({{ n }})</small></a>{% endfor %}
+</div>
+{% if unanalysed %}
+<div class="card">
+  <b>{{ unanalysed }}</b> claim{{ unanalysed|pluralize }} not analysed yet.
+  <form method="post" action="{% url 'claims:review_run_pending' %}" style="display:inline">{% csrf_token %}
+    <button class="btn secondary">Run the AI check on up to 10</button>
+  </form>
+</div>
+{% endif %}
+<div class="card">
+  <table>
+    <thead><tr><th>Claim</th><th>Claimant</th><th>Priority</th><th>Severity</th><th>Confidence</th><th>Flags</th><th></th></tr></thead>
+    {% for x in items %}
+    <tr>
+      <td><a href="{% url 'claims:review_detail' x.claim.pk %}">{{ x.claim.claim_number }}</a></td>
+      <td>{{ x.claim.claimant.username }}</td>
+      <td><span class="badge p-{{ x.priority }}">{{ x.get_priority_display }}</span></td>
+      <td>{{ x.data.damage_severity|default:"—"|capfirst }}</td>
+      <td>{% if x.data.confidence != None %}{% widthratio x.data.confidence 1 100 %}%{% else %}—{% endif %}</td>
+      <td>{{ x.review_reasons|length }}</td>
+      <td><a href="{% url 'claims:review_detail' x.claim.pk %}">Open</a></td>
+    </tr>
+    {% empty %}<tr><td colspan="7" class="help">Nothing here.</td></tr>{% endfor %}
+  </table>
+</div>
+{% endblock %}

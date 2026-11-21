@@ -181,7 +181,8 @@ class PipelineValidationTests(TestCase):
         text = " | ".join(ex.review_reasons)
         self.assertIn("Policy number mismatch", text)
         self.assertIn("Date mismatch", text)
-        self.assertEqual(ex.status, ExtractedClaim.Status.PROCESSING)  # mismatches are warnings; step 6 decides
+        self.assertEqual(ex.status, ExtractedClaim.Status.NEEDS_REVIEW)  # mismatches are flagged for a person
+        self.assertEqual(ex.priority, "high")  # policy and date mismatches are urgent
         self.assertTrue(ex.analysis["validation"]["valid"])
 
     def test_missing_name_listed_once_and_sent_to_review(self):

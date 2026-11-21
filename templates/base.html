@@ -12,6 +12,7 @@
   {% if user.is_authenticated %}
     <a href="{% url 'claims:dashboard' %}">{% if user.is_claimant %}My claims{% else %}Claims{% endif %}</a>
     {% if user.is_claimant %}<a href="{% url 'claims:create' %}">New claim</a>{% endif %}
+    {% if user.is_staff_role %}<a href="{% url 'claims:review_queue' %}">AI review</a>{% endif %}
     {% if user.is_admin_role %}<a href="{% url 'claims:panel_home' %}">Admin panel</a>{% endif %}
     <span class="help">{{ user.username }} · {{ user.get_role_display }}</span>
     <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="btn link">Log out</button></form>
