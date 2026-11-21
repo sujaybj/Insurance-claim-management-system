@@ -132,3 +132,7 @@ OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng")  # e.g. "eng+hin" if the 
 TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")  # full path on Windows if not on PATH
 POPPLER_PATH = os.environ.get("POPPLER_PATH", "") or None  # Windows: folder containing pdftoppm.exe
 OCR_MAX_PDF_PAGES = 10
+
+# --- Damage severity guesses from the claimed amount (in rupees); tune these with real claims ---
+DAMAGE_AMOUNT_MODERATE = 50_000
+DAMAGE_AMOUNT_SEVERE = 300_000

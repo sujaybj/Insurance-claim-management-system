@@ -36,9 +36,33 @@
     {% for d in documents %}<li><a href="{% url 'claims:document' d.pk %}" target="_blank">{{ d.original_name }}</a> <span class="help">{{ d.uploaded_at|date:"d M Y" }}</span></li>
     {% empty %}<li class="help">No documents uploaded.</li>{% endfor %}
   </ul>
-  <form method="post" action="{% url 'claims:add_documents' claim.pk %}" enctype="multipart/form-data">{% csrf_token %}
-    {{ upload_form.documents }}<br><br><button class="btn secondary">Upload more</button>
+  <form id="upload-form" method="post" action="{% url 'claims:add_documents' claim.pk %}" enctype="multipart/form-data">{% csrf_token %}
+    {{ upload_form.documents }}
+    <ul id="picked" class="help"></ul>
+    <p class="help" id="picked-hint">Choose one or more files (JPG, PNG or PDF, max 5 MB each), then press the button below to upload them.</p>
+    <button id="upload-btn" class="btn secondary">Upload more</button>
   </form>
+  <script>
+  // Show what was picked: files only upload when THIS form's button is pressed.
+  (function () {
+    const input = document.querySelector('#upload-form input[type=file]');
+    const list = document.getElementById('picked'), btn = document.getElementById('upload-btn');
+    const ok = /\.(jpe?g|png|pdf)$/i;
+    input.addEventListener('change', () => {
+      list.innerHTML = '';
+      for (const f of input.files) {
+        const bad = !ok.test(f.name) ? 'unsupported type' : f.size > 5 * 1024 * 1024 ? 'larger than 5 MB' : '';
+        if (bad) { alert(f.name + ': ' + bad); input.value = ''; list.innerHTML = ''; btn.textContent = 'Upload more'; btn.className = 'btn secondary'; return; }
+        const li = document.createElement('li');
+        li.textContent = f.name + ' (' + Math.max(1, Math.round(f.size / 1024)) + ' KB)';
+        list.appendChild(li);
+      }
+      const n = input.files.length;
+      btn.textContent = n ? 'Upload ' + n + (n === 1 ? ' file' : ' files') : 'Upload more';
+      btn.className = n ? 'btn' : 'btn secondary';
+    });
+  })();
+  </script>
 </div>
 
 {% if status_form %}

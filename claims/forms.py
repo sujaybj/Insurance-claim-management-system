@@ -16,7 +16,7 @@ class MultipleFileField(forms.FileField):
     """File field that accepts several files and validates each one."""
 
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault("widget", MultipleFileInput())
+        kwargs.setdefault("widget", MultipleFileInput(attrs={"accept": ".jpg,.jpeg,.png,.pdf"}))
         super().__init__(*args, **kwargs)
 
     def clean(self, data, initial=None):

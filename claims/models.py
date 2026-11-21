@@ -142,6 +142,7 @@ class ExtractedClaim(models.Model):
         max_length=15, choices=Status.choices, default=Status.PROCESSING, db_index=True
     )
     review_reasons = models.JSONField(default=list, blank=True)  # why a human must look
+    analysis = models.JSONField(default=dict, blank=True)  # photo checks, severity reasons, confidence parts
     error_message = models.TextField(blank=True)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -40,6 +40,7 @@ LABELS = {
     "vehicle": r"vehicle(?:\s+details)?|car|make\s*(?:&|and|/)\s*model|make/model",
     "make": r"(?:vehicle\s+)?make|manufacturer",
     "model": r"(?:vehicle\s+)?model(?!\s*year)",
+    "date_of_accident": r"date\s+of\s+(?:accident|incident|loss|occurrence)|accident\s+date|incident\s+date|date\s+of\s+the\s+accident",
     "year": r"(?:vehicle\s+)?year(?:\s+of\s+(?:manufacture|make|registration))?|model\s*year|mfg\.?\s*year|manufacturing\s+year",
 }
 
@@ -48,9 +49,25 @@ _ANY_LABEL = re.compile(r"(?:\s{2,}|\s\|\s)[A-Z][A-Za-z/&.' ]{2,30}\s*[:;]\s")
 _KNOWN_LABEL = re.compile(r"\s(?:" + "|".join(LABELS.values()) + r")\s*[:;]", re.IGNORECASE)
 
 
+# If the word before a label is one of these, the "label" is really the tail of a longer one
+# ("Date of Accident:", "Description of Damage:", "Vehicle Model:"), so we must not cut there.
+_LABEL_LEAD_WORDS = {
+    "of", "the", "date", "description", "details", "nature", "vehicle", "model", "mfg",
+    "manufacturing", "how", "did", "name", "policy",
+}
+_COLUMN_BREAK = re.compile(r"[ \t]+(?=(?:" + "|".join(LABELS.values()) + r")\s*[:;])", re.IGNORECASE)
+
+
 def _split_columns(text: str) -> str:
     """Put side-by-side fields ("NAME : X    POLICY NO. : Y") on separate lines."""
-    return re.sub(r"[ \t]+(?=(?:" + "|".join(LABELS.values()) + r")\s*[:;])", "\n", text, flags=re.IGNORECASE)
+
+    def maybe_break(match):
+        words = re.findall(r"[A-Za-z]+", text[: match.start()].rsplit("\n", 1)[-1])
+        if words and words[-1].lower() in _LABEL_LEAD_WORDS:
+            return match.group(0)  # part of a longer label: keep it in one piece
+        return "\n"
+
+    return _COLUMN_BREAK.sub(maybe_break, text)
 
 
 def _tidy_case(value):
@@ -221,3 +238,28 @@ def extract_fields(form_text: str, typed_description: str = "", image_urls=None)
         if sources[key] == "not found" and not already_explained:
             warnings.append(f"{label} was not found in the documents or description.")
     return ExtractionOutcome(data=data, sources=sources, warnings=warnings)
+
+
+# ---------------------------------------------------------------- accident date
+_DATE_FORMATS = ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d", "%d/%m/%y", "%d-%m-%y", "%d %B %Y", "%d %b %Y", "%B %d, %Y", "%b %d, %Y")
+
+
+def find_form_date(form_text: str):
+    """Reads 'Date of Accident: 12/03/2024' from the form. Returns (date or None, raw text or None).
+
+    Indian day-first order is assumed (12/03/2024 = 12 March). A date that is written but
+    cannot be parsed (e.g. 31/02/2024) comes back as (None, raw) so validation can say so.
+    """
+    from datetime import datetime
+
+    raw = _first(_split_columns(form_text or ""), "date_of_accident")
+    if not raw:
+        return None, None
+    cleaned = re.sub(r"(?<=\d)(st|nd|rd|th)\b", "", raw.strip(), flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(cleaned, fmt).date(), raw
+        except ValueError:
+            continue
+    return None, raw
